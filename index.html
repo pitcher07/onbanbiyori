@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>音盤日和｜音楽事務所育成ゲーム</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c4c49">
+<link rel="icon" href="images/app/icon-192.png">
+<link rel="apple-touch-icon" href="images/app/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="音盤日和">
 </head>
 <body>
 <div id="app"></div>
@@ -18,7 +24,9 @@
 <script src="live.js"></script>
 <script src="ceremony.js"></script>
 <script src="auto.js"></script>
+<script src="scenario.js"></script>
 <script src="app.js"></script>
 <script src="training-input.js"></script>
+<script>if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{})</script>
 </body>
 </html>

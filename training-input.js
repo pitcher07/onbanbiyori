@@ -44,7 +44,7 @@
     const t=e.touches[0],id=Number(el.dataset.dragPerson);
     hold={x:t.clientX,y:t.clientY,finger:t.identifier,timer:setTimeout(()=>{
       drag={id,x:hold.x,y:hold.y};ghost=document.createElement('div');
-      ghost.className='drag-ghost';ghost.textContent='↔ '+person(id).name;
+      ghost.className='drag-ghost';ghost.textContent='↔ '+sn(person(id));
       document.body.append(ghost);document.body.classList.add('moving-person');trackFinger();
     },380)};
   },{passive:true});

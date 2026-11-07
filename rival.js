@@ -22,7 +22,7 @@ function agencyTune(){
   const recent=S.songs.filter(s=>s.ours&&T()-s.t<8).map(s=>s.q);
   const ref=recent.length?Math.max(...recent):30+S.year*3;
   // 序盤は控えめ：1年目は0.85倍、4年目で等倍
-  const ramp=Math.min(1,.8+S.year*.05);
+  const rule=scRule();const ramp=rule&&rule.agencyHard?1:Math.min(1,.8+S.year*.05);
   S.rivals.filter(r=>r.agency).sort((a,b)=>b.power-a.power).forEach((r,i)=>{
     const target=ref*A.factor*ramp*(1-i*.06);
     r.power=clamp(r.power+(target-r.power)*.5,25,97);

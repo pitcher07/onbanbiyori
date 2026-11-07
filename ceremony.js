@@ -33,7 +33,7 @@ async function chartCountdown(done){
   for(const c of [...S.chart].reverse()){
     if(c.rank<=3){if(c.rank===1){se('drumroll');await showSleep(1500)}else await showSleep(700)}
     const li=document.createElement('li');li.className='cd-row'+(c.ours?' ours':'')+(isAgencyUnit(c.artist)?' ag':'')+(c.rank===1?' top':'');
-    li.innerHTML=`<b class="cd-rank">${c.rank}</b><span class="cd-title">「${esc(c.title)}」<small>${esc(c.artist)}${isAgencyUnit(c.artist)?' ・ ライバル事務所':''}</small></span><span class="cd-dl">${c.dl.toLocaleString()}DL</span>`;
+    li.innerHTML=`<b class="cd-rank">${c.rank}</b>${jacket(c,34)}<span class="cd-title">「${esc(c.title)}」<small>${esc(c.artist)}${isAgencyUnit(c.artist)?' ・ ライバル事務所':''}</small></span><span class="cd-dl">${c.dl.toLocaleString()}DL</span>`;
     ol.prepend(li);
     if(c.ours){se(c.rank===1?'award':'stamp');if(c.rank===1)confetti(el.querySelector('.show-box'))}else if(!showFast)se('tab');
     await showSleep(c.rank<=3?500:330);
@@ -47,7 +47,7 @@ function nominees(a){
   let list;
   if(a.name==='年間大賞')list=top.slice(0,3).map(x=>`「${x.title}」${x.artist}`);
   else if(a.name==='最優秀アーティスト賞')list=[...new Set(top.map(x=>x.artist))].slice(0,3);
-  else if(a.name==='最優秀作曲賞')list=[...top].sort((x,y)=>y.q-x.q).slice(0,3).map(x=>`「${x.title}」${x.ours?x.composer:x.artist}`);
+  else if(a.name==='最優秀作曲賞')list=[...top].sort((x,y)=>y.q-x.q).slice(0,3).map(x=>`「${x.title}」${x.ours?lastName(x.composer):x.artist}`);
   else list=[...new Set(S.rivals.filter(r=>!r.ex).map(r=>r.name).sort(()=>Math.random()-.5))].slice(0,2);
   if(!list.includes(a.winner))list=[...list.slice(0,2),a.winner];
   return list.sort(()=>Math.random()-.5);
@@ -55,6 +55,8 @@ function nominees(a){
 async function awardCeremony(done){
   const year=S.awards[S.awards.length-1].year;
   const el=openShow(`<small class="show-eyebrow">${year}年目</small><h2 class="show-title">音楽賞 授賞式</h2><div class="ceremony"></div>`,done);
+  // 1枚絵（D71）：授賞式の会場。年間大賞を取ったら、発表の瞬間の絵に替える
+  el.classList.add('award-show');el.style.setProperty('--art',`url(${illust('award_hall')})`);
   const box=el.querySelector('.ceremony');
   for(const a of S.awards.filter(x=>x.year===year)){
     const noms=nominees(a);
@@ -70,6 +72,7 @@ async function awardCeremony(done){
     lis.forEach(li=>{const w=li.textContent===a.winner;li.classList.remove('lit');li.classList.add(w?'win':'out');if(w&&a.ours)li.classList.add('ours')});
     card.classList.add('decided');
     if(a.ours){se('award');confetti(card)}else se('click');
+    if(a.ours&&a.name==='年間大賞'){el.style.setProperty('--art',`url(${illust('award_grand')})`);el.classList.add('grand')}
     await showSleep(a.ours?1400:800);
   }
   showNext(el,'季節の結果へ');

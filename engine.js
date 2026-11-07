@@ -15,12 +15,26 @@ const nid=()=>S.nextId++;
 const person=id=>S.people.find(p=>p.id===id)||S.alumni.find(p=>p.id===id);
 const unit=id=>S.units.find(u=>u.id===id);
 const members=u=>u.members.map(person).filter(Boolean);
-const names=ids=>ids.map(i=>person(i).name).join('、');
+const names=ids=>ids.map(i=>sn(person(i))).join('、');
+// 画面と記録の人名は名字だけ（フルネームは所属タブと名鑑）。所属内・候補に同じ名字がいればフルネーム
+const lastName=n=>String(n).split(' ')[0];
+const sn=p=>{const s=lastName(p.name);return [...S.people,...S.candidates].some(q=>q.id!==p.id&&lastName(q.name)===s)?p.name:s};
 const hist=text=>S.history.push({t:T(),text});
 const has=(p,t)=>p.traits.includes(t);
 
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function load(){try{const s=localStorage.getItem(KEY);return s?JSON.parse(s):null}catch(e){return null}}
+// slot：いま遊んでいるセーブ枠。'main' は本編、'scenario' はシナリオ（D64）
+let slot='main';
+const slotKey=()=>slot==='scenario'?SC_KEY:KEY;
+function save(){try{localStorage.setItem(slotKey(),JSON.stringify(S))}catch(e){}}
+function load(){try{const s=localStorage.getItem(slotKey());return s?JSON.parse(s):null}catch(e){return null}}
+// セーブの書き出し・読み込み（D62）。書き出しは目印つきのJSON、読み込みは目印なしの中身だけでも受けつける
+const SAVE_TAG='onbanbiyori';
+const exportText=()=>JSON.stringify({game:SAVE_TAG,v:1,at:new Date().toISOString(),save:S});
+function parseSave(txt){
+  let o;try{o=JSON.parse(String(txt).trim())}catch(e){return null}
+  if(o&&o.game===SAVE_TAG)o=o.save;
+  return o&&typeof o==='object'&&Array.isArray(o.people)&&Array.isArray(o.units)&&typeof o.year==='number'&&typeof o.agency==='string'?o:null;
+}
 
 // ===== 人物の評価 =====
 // 総合値：得意な上位3能力の平均を7割、全能力の平均を3割
@@ -47,10 +61,12 @@ function makeReview(p,scout){
 // ===== 生成 =====
 function genName(){
   const used=new Set([...S.people,...S.alumni,...S.candidates].map(p=>p.name));
-  let n;for(let i=0;i<30;i++){n=pick(SUR)+' '+pick(GIV);if(!used.has(n))break}
+  const usedSur=new Set([...S.people,...S.candidates].map(p=>lastName(p.name)));
+  let n;for(let i=0;i<30;i++){n=pick(SUR)+' '+pick(GIV);if(!used.has(n)&&!usedSur.has(lastName(n)))break}
   return n;
 }
 function genPerson(bias={},src='',ages=AUDITION_AGES){
+  const rule=scRule();if(rule&&rule.maxAge)ages=[Math.min(ages[0],rule.maxAge-3),Math.min(ages[1],rule.maxAge)];
   const talent=rnd(40,78);const age=ri(ages[0],ages[1]);
   const p={id:nid(),name:genName(),age,abil:{},pot:{},train:{},traits:[],policy:'balance',cond:80,unitId:null,joined:null,fav:false,src,awards:[],writer:pick(WRITERS)};
   for(const [a] of AB){
@@ -69,7 +85,32 @@ function genPerson(bias={},src='',ages=AUDITION_AGES){
   p.stars=clamp(Math.round(avg/18+rnd(-.7,.7)),1,5);
   p.hint=AB.map(x=>x[0]).sort((x,y)=>p.pot[y]-p.pot[x])[0];
   p.review=makeReview(p,true);
+  p.dream=pickDream(p);
   return p;
+}
+// 夢（D68）：いま所属している組と、前にいた組
+const unitsOf=p=>S.units.filter(u=>u.members.includes(p.id)||(u.lastMembers||[]).includes(p.name));
+// まだ叶っていない夢から選ぶ。最初は小さめ〜中くらい、次は今と同じか大きいもの
+function pickDream(p,min=1){
+  const done=(p.dreamsDone||[]).map(d=>d.id);
+  let ks=Object.keys(DREAMS).filter(k=>!done.includes(k)&&k!==p.dream&&DREAMS[k].tier>=min&&DREAMS[k].tier<=min+1&&!(S&&p.joined!=null&&DREAMS[k].check(p)));
+  if(!ks.length)ks=Object.keys(DREAMS).filter(k=>!done.includes(k)&&k!==p.dream&&DREAMS[k].tier>=min&&!(S&&p.joined!=null&&DREAMS[k].check(p)));
+  return ks.length?pick(ks):null;
+}
+function checkDreams(rep){
+  rep.goal=rep.goal||[];
+  S.dreamLog=S.dreamLog||[];
+  for(const p of S.people){
+    if(!p.dream||!DREAMS[p.dream]||!DREAMS[p.dream].check(p))continue;
+    const d=DREAMS[p.dream];
+    (p.dreamsDone=p.dreamsDone||[]).push({id:p.dream,t:T()});
+    for(const [a] of AB)p.pot[a]=Math.min(99,p.pot[a]+DREAM_POT);
+    p.cond=100;
+    S.dreamLog.push({t:T(),pid:p.id,name:p.name,dream:p.dream});
+    hist(`🌟 ${sn(p)}の夢「${d.name}」が叶った`);
+    rep.goal.push({kind:'dream',text:`${sn(p)}の夢「${d.name}」が叶った（素質がそれぞれ+${DREAM_POT}、調子が全回復）`,pid:p.id});
+    p.dream=pickDream(p,d.tier);
+  }
 }
 function genTitle(){
   const r=Math.random();
@@ -121,7 +162,7 @@ function updateRivals(){
   const n=ri(1,2);for(let i=0;i<n;i++)S.rivals.push(newRival(genUnitName(),rnd(35,62)+Math.min(S.year,15)));
   while(S.rivals.length>14){const w=S.rivals.filter(r=>!r.ex&&!r.agency).sort((a,b)=>a.power-b.power)[0];if(!w)break;S.rivals=S.rivals.filter(r=>r!==w)}
 }
-function genAudition(n=5){for(let i=0;i<n;i++)S.candidates.push(genPerson({},'オーディション'))}
+function genAudition(n=5){const rule=scRule();if(rule&&rule.audition!=null)n=rule.audition;for(let i=0;i<n;i++)S.candidates.push(genPerson({},'オーディション'))}
 
 function newGame(agency){
   S={ver:3,agency,year:1,season:0,nextId:1,people:[],alumni:[],units:[],songs:[],candidates:[],scouted:false,history:[],chart:[],yearPts:{},annual:[],awards:[],compat:{},known:{},rivals:RIVALS.map(name=>newRival(name,rnd(30,58))),pending:[],popup:false,report:null,dl:0};
@@ -167,7 +208,7 @@ function revealCompat(){
 // ===== 能力・調子・ファンの増減 =====
 function addAbil(p,a,d){
   const b=p.abil[a];p.abil[a]=clamp(b+d,1,100);
-  for(const m of [60,80,90])if(b<m&&p.abil[a]>=m)hist(`${p.fav?'★':''}${p.name}の${AB_NAME[a]}が${m}に到達`);
+  for(const m of [60,80,90])if(b<m&&p.abil[a]>=m)hist(`${p.fav?'★':''}${sn(p)}の${AB_NAME[a]}が${m}に到達`);
 }
 const addCond=(p,d)=>p.cond=clamp(p.cond+d,10,100);
 const buzzF=u=>members(u).some(m=>has(m,'buzz'))?1.25:1;
@@ -242,16 +283,16 @@ function growPerson(p,rep){
   if(u&&u.members.length>1&&unitCompat(u).avg<=-15)cost+=4;
   addCond(p,-cost);
   const natStr=nat.length?` ／ 自然：${nat.join(' ')}`:'';
-  const partnerStr=partner&&!slump?`（${partner.name}と切磋琢磨）`:'';
-  if(p.policy==='rest')rep.grow.push(`${p.name}（休養）調子 ${condBefore}→${Math.round(p.cond)}${natStr}`);
-  else if(slump)rep.event.push(`【スランプ】${p.name}はスランプで伸び悩んだ${natStr}`);
-  else rep.grow.push(`${p.fav?'★':''}${p.name}（${pol.name}）${gains.join(' ')||'目立った変化なし'}${wall?' ※素質の壁':''}${partnerStr}${natStr}`);
+  const partnerStr=partner&&!slump?`（${sn(partner)}と切磋琢磨）`:'';
+  if(p.policy==='rest')rep.grow.push(`${sn(p)}（休養）調子 ${condBefore}→${Math.round(p.cond)}${natStr}`);
+  else if(slump)rep.event.push(`【スランプ】${sn(p)}はスランプで伸び悩んだ${natStr}`);
+  else rep.grow.push(`${p.fav?'★':''}${sn(p)}（${pol.name}）${gains.join(' ')||'目立った変化なし'}${wall?' ※素質の壁':''}${partnerStr}${natStr}`);
   // 才能開花
   if(p.policy!=='balance'&&p.policy!=='rest'&&!slump&&p.cond>=50&&Math.random()<.06){
     const main=mainAbil(p);
     p.pot[main]=Math.min(99,p.pot[main]+ri(6,10));
     p.train[main]=Math.max(p.train[main],2);
-    const msg=`${p.name}が${pol.name}で才能を開花させ、${AB_NAME[main]}の素質が伸びた！`;
+    const msg=`${sn(p)}が${pol.name}で才能を開花させ、${AB_NAME[main]}の素質が伸びた！`;
     hist(msg);rep.event.push(`【才能開花】${msg}`);
   }
 }
@@ -293,7 +334,7 @@ function releaseSongs(rep){
     S.songs.push(s);u.lastRelease=T();u.songs++;
     if(u.debut==null)u.debut=T();
     hist(`${u.name}が新曲「${s.title}」を発表（出来 ${q}）`);
-    rep.song.push(`${u.name}「${s.title}」 出来 ${q}（作曲：${composer}）`);
+    rep.song.push(`${u.name}「${s.title}」 出来 ${q}（作曲：${lastName(composer)}）`);
   }
 }
 
@@ -383,7 +424,7 @@ function annual(rep){
     else give('最優秀新人賞',genUnitName(),false);
     const bq=[...ys].sort((a,b)=>b.q-a.q)[0];
     const composer=bq.ours&&S.people.find(p=>p.name===bq.composer);
-    give('最優秀作曲賞',`「${bq.title}」${bq.ours?bq.composer:bq.artist}`,bq.ours,null,composer?[composer]:[]);
+    give('最優秀作曲賞',`「${bq.title}」${bq.ours?lastName(bq.composer):bq.artist}`,bq.ours,null,composer?[composer]:[]);
   }
   S.yearPts={};
 }
@@ -449,13 +490,13 @@ function leaveUnit(p){
   o.members=o.members.filter(x=>x!==p.id);p.unitId=null;
   if(o.members.length<TYPES[o.type].min)disband(o,'メンバー不足で活動休止');
 }
-function removeFromUnit(p){hist(`${p.name}が「${unit(p.unitId).name}」を離れた`);leaveUnit(p)}
+function removeFromUnit(p){hist(`${sn(p)}が「${unit(p.unitId).name}」を離れた`);leaveUnit(p)}
 function leavePerson(p,reason){
   if(p.unitId)removeFromUnit(p);
   p.left=T();p.leftReason=reason;
   S.people=S.people.filter(x=>x!==p);S.alumni.push(p);
-  hist(`${p.name}が事務所を離れた（${reason}）`);
-  if(S.report&&(inTurn||S.popup))S.report.leave.push(`${p.name}（${reason}）`);
+  hist(`${sn(p)}が事務所を離れた（${reason}）`);
+  if(S.report&&(inTurn||S.popup))S.report.leave.push(`${sn(p)}（${reason}）`);
 }
 const retire=p=>leavePerson(p,'引退');
 function independent(p){
@@ -488,29 +529,30 @@ function nextTurn(){
   S.season++;
   if(S.season>3){S.season=0;S.year++;S.people.forEach(p=>p.age++);updateRivals()}
   S.candidates=[];S.scouted=false;
-  if(S.season===0){genAudition();rep.event.push('春のオーディションが開催されています（発掘タブ）')}
+  if(S.season===0){genAudition();if(S.candidates.length)rep.event.push('春のオーディションが開催されています（発掘タブ）')}
   S.people.forEach(p=>p.review=makeReview(p));
   S.popup=true;inTurn=false;save();
 }
 
 // ===== 操作 =====
 function sign(id){
-  if(S.people.length>=ROSTER_MAX)return alert(`所属は${ROSTER_MAX}人までです`);
+  if(S.people.length>=rosterMax())return alert(`所属は${rosterMax()}人までです`);
   const p=S.candidates.find(c=>c.id===id);
   S.candidates=S.candidates.filter(c=>c!==p);
   p.joined=T();S.people.push(p);
   p.review=makeReview(p);
-  hist(`${p.name}（${p.age}歳）が${p.src}から加入`);
+  hist(`${sn(p)}（${p.age}歳）が${p.src}から加入`);
   save();
 }
 function scout(k){
-  if(S.scouted)return;
+  if(S.scouted||!scoutAllowed())return;
   S.scouted=true;
   for(let i=0;i<2;i++)S.candidates.push(genPerson(PLACES[k].bias,PLACES[k].name,PLACES[k].ages));
   save();
 }
 function saveUnit(){
   const ty=TYPES[F.type];const ids=[...F.members];
+  if(!typeAllowed(F.type)){alert(`このシナリオでは${ty.name}は結成できません`);return false}
   if(ids.length<ty.min||ids.length>ty.max){alert(`${ty.name}は${sizeStr(ty)}で編成してください`);return false}
   const u=F.id?unit(F.id):null;
   const name=F.name.trim()||(ty.max===1?genSoloName(person(ids[0]),F.type):genUnitName());

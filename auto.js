@@ -1,10 +1,11 @@
-// 自動管理（休養の出し入れ・発掘・迎え入れ）と自動送り（季節を自動で進める）
-// 自動管理は、手で「次の季節へ」を押したときも、設定がオンなら毎季行う
+// 自動モード（D66）：季節を自動で進め、休養の出し入れ・発掘・迎え入れ・入れ替え・編成・トレーニング見直しもおまかせで行う。
+// 細かい設定は選ばせず、基準は AUTO_DEFAULT に固定。自動モードがオフ（手で進める）ときは何もしない
 function applyAuto(){
   const A=S.auto,done=[];
+  if(!autoRun)return done;
   // 自動送り中の入れ替え・編成・トレーニング見直し（D55）。手で進めるときはしない
   const turnover=autoRun&&A.release;
-  if(A.scout!=='off'&&!S.scouted&&(S.people.length<ROSTER_MAX||turnover)){
+  if(A.scout!=='off'&&!S.scouted&&scoutAllowed()&&(S.people.length<rosterMax()||turnover)){
     const keys=Object.keys(PLACES);
     const k=A.scout==='rotate'?keys[T()%keys.length]:A.scout;
     if(PLACES[k]){scout(k);done.push(`${PLACES[k].name}で発掘した`)}
@@ -12,16 +13,16 @@ function applyAuto(){
   if(turnover)autoTurnover(done);
   if(A.sign){
     [...S.candidates].sort((a,b)=>b.stars-a.stars||ov(b)-ov(a)).forEach(c=>{
-      if(c.stars<A.signStars||S.people.length>=ROSTER_MAX)return;
-      sign(c.id);done.push(`${c.name}（見込み${'★'.repeat(c.stars)}）を迎え入れた`);
+      if(c.stars<A.signStars||S.people.length>=rosterMax())return;
+      sign(c.id);done.push(`${sn(c)}（見込み${'★'.repeat(c.stars)}）を迎え入れた`);
     });
   }
   for(const p of S.people){
     if(A.rest&&p.policy!=='rest'&&p.cond<A.restAt){
-      p.autoPrev=p.policy;p.policy='rest';done.push(`${p.name}を休養へ（調子${Math.round(p.cond)}）`);
+      p.autoPrev=p.policy;p.policy='rest';done.push(`${sn(p)}を休養へ（調子${Math.round(p.cond)}）`);
     }else if(A.back&&p.policy==='rest'&&p.cond>=A.backAt){
       p.policy=p.autoPrev&&p.autoPrev!=='rest'?p.autoPrev:'balance';delete p.autoPrev;
-      done.push(`${p.name}を${POLICIES[p.policy].name}へ戻した（調子${Math.round(p.cond)}）`);
+      done.push(`${sn(p)}を${POLICIES[p.policy].name}へ戻した（調子${Math.round(p.cond)}）`);
     }
   }
   if(autoRun&&A.train)autoTrain(done);
@@ -39,7 +40,7 @@ function prospect(p,noise){
 }
 // 入れ替え：今季の候補者に、所属で一番見込みの低い人よりはっきり良い人がいれば、契約を終えて迎え入れる（1季に1人まで）
 function autoTurnover(done){
-  if(S.people.length<ROSTER_MAX-1||!S.candidates.length||Math.random()<.3)return;
+  if(S.people.length<rosterMax()-1||!S.candidates.length||Math.random()<.3)return;
   const best=S.candidates.map(c=>({c,v:prospect(c,12)})).sort((a,b)=>b.v-a.v)[0];
   const hallUnits=new Set(S.hall.filter(h=>h.kind==='unit').map(h=>h.id));
   // 推し・殿堂の組・入って1年未満の人は外さない。活躍中の組の人は外しにくくする
@@ -48,8 +49,8 @@ function autoTurnover(done){
   if(!worst||best.v<worst.v+8)return;
   const p=worst.p;
   leavePerson(p,'契約終了');
-  done.push(`${p.name}（${p.age}歳・総合${ov(p)}）との契約を終えた（伸びしろが少ないと判断）`);
-  if(S.people.length<ROSTER_MAX&&S.candidates.includes(best.c)){sign(best.c.id);done.push(`代わりに${best.c.name}（見込み${'★'.repeat(best.c.stars)}）を迎え入れた`)}
+  done.push(`${sn(p)}（${p.age}歳・総合${ov(p)}）との契約を終えた（伸びしろが少ないと判断）`);
+  if(S.people.length<rosterMax()&&S.candidates.includes(best.c)){sign(best.c.id);done.push(`代わりに${sn(best.c)}（見込み${'★'.repeat(best.c.stars)}）を迎え入れた`)}
 }
 // 形態の向き不向き（本人の能力だけで見た楽曲力）
 const typeFit=(p,k)=>Object.entries(TYPES[k].w).reduce((s,[a,w])=>s+w*p.abil[a],0);
@@ -60,14 +61,16 @@ function autoForm(done){
   const votes={};
   // 2人以上いるときは、たいていグループの形態から選ぶ（ソロばかり増えないように）
   const group=ready.length>=2&&Math.random()<.8;
-  const pool=Object.keys(TYPES).filter(k=>!group||TYPES[k].min>=2&&TYPES[k].min<=ready.length);
+  const pool=Object.keys(TYPES).filter(k=>typeAllowed(k)&&(!group||TYPES[k].min>=2&&TYPES[k].min<=ready.length));
+  if(!pool.length)return;
   ready.forEach(p=>{const f=pool.sort((a,b)=>typeFit(p,b)-typeFit(p,a));const k=Math.random()<.7||!f[1]?f[0]:f[1];votes[k]=(votes[k]||0)+1});
   let type=Object.entries(votes).sort((a,b)=>b[1]-a[1])[0][0];
   if(ready.length<TYPES[type].min){
     // 人数が足りない：ひとりで1年待った人は、向いているソロ形態でデビューさせる
     const lone=ready.find(p=>T()-p.joined>=4);if(!lone)return;
-    type=Object.keys(TYPES).filter(k=>TYPES[k].max===1).sort((a,b)=>typeFit(lone,b)-typeFit(lone,a))[0];
+    type=Object.keys(TYPES).filter(k=>TYPES[k].max===1&&typeAllowed(k)).sort((a,b)=>typeFit(lone,b)-typeFit(lone,a))[0];
   }
+  if(!type)return;
   const ty=TYPES[type];
   const size=Math.min(ready.length,ty.max,ty.min+Math.floor(Math.random()*(ty.max-ty.min+1)));
   const ms=[...ready].sort((a,b)=>typeFit(b,type)*rnd(.85,1.15)-typeFit(a,type)*rnd(.85,1.15)).slice(0,size);
@@ -75,7 +78,7 @@ function autoForm(done){
   F={id:null,type,name:'',members:new Set(ms.map(p=>p.id))};
   F.name=ty.max===1?genSoloName(ms[0],type):genUnitName();
   const name=F.name;const ok=saveUnit();F=keepF;
-  if(ok)done.push(`${ty.name}「${name}」を結成した（${ms.map(p=>p.name).join('、')}）`);
+  if(ok)done.push(`${ty.name}「${name}」を結成した（${ms.map(sn).join('、')}）`);
 }
 // トレーニングの見直し：毎季3割くらいの人だけ見直す。組の形態で大事な能力のうち低いほうを伸ばす。2割はバランス
 const POLICY_OF={sing:'voice',play:'play',comp:'comp',dance:'dance',expr:'stage',char:'stage'};
@@ -104,7 +107,9 @@ function advanceSeason(){
   // 初めての大きな会場か夏フェスなら、ライブ本番シーンにする。自動送り中はおまかせで一瞬で終える
   const sc=pickFeatured(before);if(sc)S.liveScene=sc;
   if(S.liveScene&&autoRun&&!S.auto.stopLive)autoResolveLive();
+  checkDreams(S.report);
   checkGoals(S.report);
+  scenarioCheck(S.report);
 }
 
 // ===== 自動送り =====
@@ -113,6 +118,7 @@ function autoStopReason(r){
   const A=S.auto;
   if(S.pending.length)return '選択が必要なイベントがあります';
   if(S.creditsPending)return '初めての年間大賞です';
+  if(S.scenario&&S.scenario.result&&!S.scenario.result.seen)return 'シナリオの結果が出ました';
   if(A.stopAward&&r.award.some(a=>a.includes('🏆')))return '音楽賞を受賞しました';
   if(A.stopLeave&&r.leave.length)return '事務所を離れた人がいます';
   if(A.stopGoal&&(r.goal||[]).some(g=>g.kind!=='skill'))return '事務所ランク・実績・殿堂に動きがありました';
@@ -126,7 +132,7 @@ function startAuto(){
 }
 function stopAuto(note){
   autoRun=false;clearInterval(autoTimer);autoTimer=null;
-  if(note){autoNote=note;fxToast('自動送りを止めました：'+note)}
+  if(note){autoNote=note;fxToast('自動モードを止めました：'+note)}
   render();
 }
 function autoStep(){

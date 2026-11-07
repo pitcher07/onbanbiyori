@@ -1,5 +1,5 @@
 // ゲームデータ定義（能力・トレーニング・個性・活動形態・発掘場所・会場・イベント・名前と評価文の素材）。
-// 数値は遊びながら調整する。変えたら game_design.md に記録すること。
+// 数値は遊びながら調整する。変えたら docs/game_design.md に記録すること。
 const AB=[['sing','歌唱'],['play','演奏'],['comp','作曲'],['dance','ダンス'],['expr','表現'],['char','カリスマ']];
 const AB_NAME=Object.fromEntries(AB);
 const SEASONS=['春','夏','秋','冬'];
@@ -7,7 +7,7 @@ const SEASON_ICON=['🌸','☀️','🍁','❄️'];
 // 素質ランク（下限値の高い順）
 const RANKS=[['S',90],['A',80],['B',65],['C',50],['D',0]];
 const RANK_NOTE={S:'トップクラスの才能',A:'一流になれる',B:'十分に活躍できる',C:'人並み',D:'伸びにくい'};
-const ROSTER_MAX=20;
+const ROSTER_MAX=10;
 const FAV_MAX=3;
 const POLICIES={
   balance:{name:'バランス',desc:'全能力が少しずつ伸びる',w:{sing:.4,play:.4,comp:.4,dance:.4,expr:.4,char:.4},cost:8},
@@ -141,19 +141,19 @@ const breakupF=u=>unitHot(u)?.15:unitCold(u)?1.5:.6;
 const senpaiFor=u=>{const ms=members(u);const first=Math.min(...ms.map(m=>m.joined));return S.people.filter(p=>!u.members.includes(p.id)&&p.abil.comp>=60&&p.joined<first).sort((a,b)=>b.abil.comp-a.abil.comp)[0]||null};
 const EVENTS=[
   // --- 人・強制 ---
-  {id:'cold',name:'風邪',t:'p',w:()=>S.season===3?3:1,text:c=>`${c.p.name}が風邪をひいてしまった。`,run:c=>{addCond(c.p,-20);return '調子−20'}},
-  {id:'injury',name:'怪我',t:'p',w:c=>(['dance','stage'].includes(c.p.policy)?1.5:.4)*(has(c.p,'fragile')?4:1),text:c=>`${c.p.name}がレッスン中に足を痛めた。`,run:c=>{addCond(c.p,-30);addAbil(c.p,'dance',-3);return '調子−30、ダンス−3'}},
-  {id:'hayfever',name:'花粉症',t:'p',season:[0],w:()=>1,text:c=>`${c.p.name}が花粉症に悩まされている。`,run:c=>{addCond(c.p,-10);addAbil(c.p,'sing',-1);return '調子−10、歌唱−1'}},
-  {id:'heat',name:'夏バテ',t:'p',season:[1],w:()=>1.2,text:c=>`猛暑で${c.p.name}が夏バテ気味だ。`,run:c=>{addCond(c.p,-15);return '調子−15'}},
-  {id:'idea',name:'ひらめき',t:'p',w:c=>c.p.abil.comp>=30?1:0,text:c=>`${c.p.name}が街角で聞いた音から新しいメロディを思いついた。`,run:c=>{addAbil(c.p,'comp',3);return '作曲+3'}},
-  {id:'graduate',name:'卒業シーズン',t:'p',season:[0],w:c=>c.p.age<=22?1.2:0,text:c=>`${c.p.name}は別れの季節を経て、何かをつかんだようだ。`,run:c=>{addAbil(c.p,'expr',3);return '表現+3'}},
-  {id:'art',name:'芸術の秋',t:'p',season:[2],w:()=>1,text:c=>`芸術の秋。${c.p.name}は美術館や映画から刺激を受けた。`,run:c=>{const a=pick(['expr','comp']);addAbil(c.p,a,2);return `${AB_NAME[a]}+2`}},
-  {id:'letter',name:'ファンレター',t:'p',w:c=>c.u&&c.u.fans>0?1:0,text:c=>`${c.p.name}のもとに心のこもったファンレターが届いた。`,run:c=>{addCond(c.p,15);return '調子+15'}},
-  {id:'bday',name:'誕生日サプライズ',t:'p',w:c=>c.u&&c.u.members.length>1?.8:0,text:c=>`メンバーが${c.p.name}の誕生日をサプライズで祝った。`,run:c=>{addCond(c.p,10);members(c.u).forEach(m=>m!==c.p&&addCompat(c.p,m,5));return '調子+10、メンバーとの相性が少し良くなった'}},
-  {id:'buzz',name:'SNSでバズる',t:'p',w:c=>c.u?(has(c.p,'buzz')?3:.7):0,text:c=>`${c.p.name}の何気ない投稿がSNSで大きな話題になった。`,run:c=>`${c.u.name}のファン${fmt(addFans(c.u,.15,500))}`},
-  {id:'homesick',name:'ホームシック',t:'p',w:c=>c.p.age<=20&&T()-c.p.joined<4?1:0,text:c=>`上京したばかりの${c.p.name}がホームシックにかかった。`,run:c=>{addCond(c.p,-15);return '調子−15'}},
-  {id:'stimulus',name:'同世代の活躍',t:'p',w:()=>.8,text:c=>`${c.p.name}は同世代のアーティストの活躍に刺激を受けた。`,run:c=>{const a=mainAbil(c.p);addAbil(c.p,a,2);return `${AB_NAME[a]}+2`}},
-  {id:'retire_force',name:'引退の決意',t:'p',season:[3],w:c=>c.p.age>=38?3:0,text:c=>`${c.p.age}歳の${c.p.name}が引退を決意した。`,run:c=>{retire(c.p);return '長いキャリアに幕を下ろした'}},
+  {id:'cold',name:'風邪',t:'p',w:()=>S.season===3?3:1,text:c=>`${sn(c.p)}が風邪をひいてしまった。`,run:c=>{addCond(c.p,-20);return '調子−20'}},
+  {id:'injury',name:'怪我',t:'p',w:c=>(['dance','stage'].includes(c.p.policy)?1.5:.4)*(has(c.p,'fragile')?4:1),text:c=>`${sn(c.p)}がレッスン中に足を痛めた。`,run:c=>{addCond(c.p,-30);addAbil(c.p,'dance',-3);return '調子−30、ダンス−3'}},
+  {id:'hayfever',name:'花粉症',t:'p',season:[0],w:()=>1,text:c=>`${sn(c.p)}が花粉症に悩まされている。`,run:c=>{addCond(c.p,-10);addAbil(c.p,'sing',-1);return '調子−10、歌唱−1'}},
+  {id:'heat',name:'夏バテ',t:'p',season:[1],w:()=>1.2,text:c=>`猛暑で${sn(c.p)}が夏バテ気味だ。`,run:c=>{addCond(c.p,-15);return '調子−15'}},
+  {id:'idea',name:'ひらめき',t:'p',w:c=>c.p.abil.comp>=30?1:0,text:c=>`${sn(c.p)}が街角で聞いた音から新しいメロディを思いついた。`,run:c=>{addAbil(c.p,'comp',3);return '作曲+3'}},
+  {id:'graduate',name:'卒業シーズン',t:'p',season:[0],w:c=>c.p.age<=22?1.2:0,text:c=>`${sn(c.p)}は別れの季節を経て、何かをつかんだようだ。`,run:c=>{addAbil(c.p,'expr',3);return '表現+3'}},
+  {id:'art',name:'芸術の秋',t:'p',season:[2],w:()=>1,text:c=>`芸術の秋。${sn(c.p)}は美術館や映画から刺激を受けた。`,run:c=>{const a=pick(['expr','comp']);addAbil(c.p,a,2);return `${AB_NAME[a]}+2`}},
+  {id:'letter',name:'ファンレター',t:'p',w:c=>c.u&&c.u.fans>0?1:0,text:c=>`${sn(c.p)}のもとに心のこもったファンレターが届いた。`,run:c=>{addCond(c.p,15);return '調子+15'}},
+  {id:'bday',name:'誕生日サプライズ',t:'p',w:c=>c.u&&c.u.members.length>1?.8:0,text:c=>`メンバーが${sn(c.p)}の誕生日をサプライズで祝った。`,run:c=>{addCond(c.p,10);members(c.u).forEach(m=>m!==c.p&&addCompat(c.p,m,5));return '調子+10、メンバーとの相性が少し良くなった'}},
+  {id:'buzz',name:'SNSでバズる',t:'p',w:c=>c.u?(has(c.p,'buzz')?3:.7):0,text:c=>`${sn(c.p)}の何気ない投稿がSNSで大きな話題になった。`,run:c=>`${c.u.name}のファン${fmt(addFans(c.u,.15,500))}`},
+  {id:'homesick',name:'ホームシック',t:'p',w:c=>c.p.age<=20&&T()-c.p.joined<4?1:0,text:c=>`上京したばかりの${sn(c.p)}がホームシックにかかった。`,run:c=>{addCond(c.p,-15);return '調子−15'}},
+  {id:'stimulus',name:'同世代の活躍',t:'p',w:()=>.8,text:c=>`${sn(c.p)}は同世代のアーティストの活躍に刺激を受けた。`,run:c=>{const a=mainAbil(c.p);addAbil(c.p,a,2);return `${AB_NAME[a]}+2`}},
+  {id:'retire_force',name:'引退の決意',t:'p',season:[3],w:c=>c.p.age>=38?3:0,text:c=>`${c.p.age}歳の${sn(c.p)}が引退を決意した。`,run:c=>{retire(c.p);return '長いキャリアに幕を下ろした'}},
   // --- 組・強制 ---
   {id:'tv',name:'歌番組出演',t:'u',w:c=>c.u.fans>=10000?(S.season===3?2:.8):0,text:c=>`${c.u.name}が人気歌番組に出演した。`,run:c=>{const f=addFans(c.u,.08,0);members(c.u).forEach(m=>addAbil(m,'char',2));return `ファン${fmt(f)}、メンバーのカリスマ+2`}},
   {id:'magazine',name:'音楽誌の特集',t:'u',w:c=>S.chart.some(x=>x.unitId===c.u.id)?1.2:0,text:c=>`音楽誌が${c.u.name}の特集を組んだ。`,run:c=>`ファン${fmt(addFans(c.u,.05,200))}`},
@@ -165,54 +165,54 @@ const EVENTS=[
   {id:'cm',name:'CM出演のオファー',t:'u',w:c=>c.u.fans>=5000?.8:0,text:c=>`大手飲料メーカーから${c.u.name}にCM出演の話が来た。`,choices:[
     {label:'受ける',run:c=>{const f=addFans(c.u,.1,300);members(c.u).forEach(m=>addCond(m,-10));return `ファン${fmt(f)}、忙しさで調子−10`}},
     {label:'断る',run:c=>{members(c.u).forEach(m=>addCond(m,5));return 'アーティスト性を守った。調子+5'}}]},
-  {id:'request',name:'楽曲提供の依頼',t:'p',w:c=>c.p.abil.comp>=50?1:0,text:c=>`他事務所の歌手から${c.p.name}に楽曲提供の依頼が来た。`,choices:[
+  {id:'request',name:'楽曲提供の依頼',t:'p',w:c=>c.p.abil.comp>=50?1:0,text:c=>`他事務所の歌手から${sn(c.p)}に楽曲提供の依頼が来た。`,choices:[
     {label:'引き受ける',run:c=>{addAbil(c.p,'comp',3);addCond(c.p,-10);return '作曲+3、調子−10'}},
     {label:'断る',run:c=>{addCond(c.p,5);return '調子+5'}}]},
-  {id:'study',name:'短期留学の希望',t:'p',w:c=>c.p.age<=25?.7:0,text:c=>`${c.p.name}が「海外で音楽を学びたい」と相談してきた。`,choices:[
+  {id:'study',name:'短期留学の希望',t:'p',w:c=>c.p.age<=25?.7:0,text:c=>`${sn(c.p)}が「海外で音楽を学びたい」と相談してきた。`,choices:[
     {label:'行かせる',run:c=>{AB.forEach(([a])=>addAbil(c.p,a,2));addCond(c.p,-10);return '全能力+2、調子−10'}},
     {label:'今は見送る',run:c=>{addCond(c.p,-10);return '少し残念そうだ。調子−10'}}]},
-  {id:'producer',name:'大物プロデューサー',t:'p',w:c=>ov(c.p)>=55?.8:0,text:c=>`大物プロデューサーが${c.p.name}に目を留め、指導を申し出た。`,choices:[
+  {id:'producer',name:'大物プロデューサー',t:'p',w:c=>ov(c.p)>=55?.8:0,text:c=>`大物プロデューサーが${sn(c.p)}に目を留め、指導を申し出た。`,choices:[
     {label:'指導を受ける',run:c=>{const a=topAbil(c.p);addAbil(c.p,a,5);addCond(c.p,-15);return `${AB_NAME[a]}+5、厳しい指導で調子−15`}},
     {label:'丁重に断る',run:()=>'今の育成方針を貫いた'}]},
-  {id:'scandal',name:'熱愛報道',t:'p',w:c=>c.u&&c.u.fans>=3000&&c.p.age>=18?.3:0,text:c=>`週刊誌が${c.p.name}の熱愛を報じた。`,choices:[
+  {id:'scandal',name:'熱愛報道',t:'p',w:c=>c.u&&c.u.fans>=3000&&c.p.age>=18?.3:0,text:c=>`週刊誌が${sn(c.p)}の熱愛を報じた。`,choices:[
     {label:'正直に認める',run:c=>`ファン${fmt(addFans(c.u,-.05,0))}。誠実な対応に好感の声も`},
     {label:'否定する',run:c=>Math.random()<.5?'騒ぎはすぐに収まった':`後に事実と判明し、ファン${fmt(addFans(c.u,-.12,0))}`},
     {label:'ノーコメント',run:c=>`ファン${fmt(addFans(c.u,-.03,0))}`}]},
-  {id:'flame',name:'SNSで炎上',t:'p',w:c=>c.u?.5:0,text:c=>`${c.p.name}の発言がSNSで炎上してしまった。`,choices:[
+  {id:'flame',name:'SNSで炎上',t:'p',w:c=>c.u?.5:0,text:c=>`${sn(c.p)}の発言がSNSで炎上してしまった。`,choices:[
     {label:'すぐに謝罪する',run:c=>{addCond(c.p,-10);return `ファン${fmt(addFans(c.u,-.03,0))}、調子−10`}},
     {label:'静観する',run:c=>`ファン${fmt(addFans(c.u,-.08,0))}`}]},
-  {id:'throat',name:'喉の不調',t:'p',w:c=>c.p.abil.sing>=40&&c.p.policy!=='rest'?.8:0,text:c=>`${c.p.name}が喉の違和感を訴えている。`,choices:[
+  {id:'throat',name:'喉の不調',t:'p',w:c=>c.p.abil.sing>=40&&c.p.policy!=='rest'?.8:0,text:c=>`${sn(c.p)}が喉の違和感を訴えている。`,choices:[
     {label:'休養させる',run:c=>{c.p.policy='rest';return '育成方針を休養に変更した'}},
     {label:'様子を見る',run:c=>{if(Math.random()<.4){addAbil(c.p,'sing',-6);addCond(c.p,-15);return '悪化してしまった。歌唱−6、調子−15'}return '大事には至らなかった'}}]},
-  {id:'streetfind',name:'気になる才能',t:'a',w:()=>S.people.length<ROSTER_MAX?.8:0,text:()=>'スタッフが街で気になる人を見かけたらしい。',choices:[
-    {label:'声をかける',run:()=>{const pl=pick(Object.values(PLACES));const c=genPerson(pl.bias,'街角',pl.ages);c.stars=Math.min(5,c.stars+1);S.candidates.push(c);return `${c.name}が候補に加わった（発掘タブ）`}},
+  {id:'streetfind',name:'気になる才能',t:'a',w:()=>S.people.length<rosterMax()&&scoutAllowed()?.8:0,text:()=>'スタッフが街で気になる人を見かけたらしい。',choices:[
+    {label:'声をかける',run:()=>{const pl=pick(Object.values(PLACES));const c=genPerson(pl.bias,'街角',pl.ages);c.stars=Math.min(5,c.stars+1);S.candidates.push(c);return `${sn(c)}が候補に加わった（発掘タブ）`}},
     {label:'見送る',run:()=>'今回は見送った'}]},
   {id:'camp',name:'夏合宿の提案',t:'u',season:[1],w:c=>c.u.members.length>1?1:0,text:c=>`${c.u.name}のメンバーから夏合宿をしたいという声が上がった。`,choices:[
     {label:'合宿をする',run:c=>{const ms=members(c.u);ms.forEach(m=>{addCond(m,-10);addAbil(m,mainAbil(m),3)});pairs(ms).forEach(([a,b])=>addCompat(a,b,6,true));return '各自の重点能力+3、相性が深まった、調子−10'}},
     {label:'見送る',run:()=>'通常どおりの活動を続けた'}]},
-  {id:'poach',name:'引き抜きの話',t:'p',w:c=>ov(c.p)>=50?.5:0,text:c=>`${S.agencyRival&&Math.random()<.5?'ライバル事務所の'+S.agencyRival.name:'他事務所'}が${c.p.name}の引き抜きを狙っているらしい。`,choices:[
-    {label:'説得する',run:c=>{if(Math.random()<.6){addCond(c.p,5);return '事務所に残ってくれることになった'}leavePerson(c.p,'移籍');return `説得は届かず、${c.p.name}は他事務所へ移籍した`}},
-    {label:'送り出す',run:c=>{leavePerson(c.p,'移籍');return `${c.p.name}は他事務所へ移籍した`}}]},
-  {id:'retire',name:'引退の相談',t:'p',season:[3],w:c=>c.p.age>=30&&c.p.age<38?(c.p.age-29)*.6:0,text:c=>`${c.p.age}歳の${c.p.name}が引退を考えていると打ち明けてきた。`,choices:[
+  {id:'poach',name:'引き抜きの話',t:'p',w:c=>ov(c.p)>=50?.5:0,text:c=>`${S.agencyRival&&Math.random()<.5?'ライバル事務所の'+S.agencyRival.name:'他事務所'}が${sn(c.p)}の引き抜きを狙っているらしい。`,choices:[
+    {label:'説得する',run:c=>{if(Math.random()<.6){addCond(c.p,5);return '事務所に残ってくれることになった'}leavePerson(c.p,'移籍');return `説得は届かず、${sn(c.p)}は他事務所へ移籍した`}},
+    {label:'送り出す',run:c=>{leavePerson(c.p,'移籍');return `${sn(c.p)}は他事務所へ移籍した`}}]},
+  {id:'retire',name:'引退の相談',t:'p',season:[3],w:c=>c.p.age>=30&&c.p.age<38?(c.p.age-29)*.6:0,text:c=>`${c.p.age}歳の${sn(c.p)}が引退を考えていると打ち明けてきた。`,choices:[
     {label:'引き止める',run:c=>{if(Math.random()<.5){addCond(c.p,-10);return 'もう少し続けてくれることになった（調子−10）'}retire(c.p);return '決意は固く、引退することになった'}},
     {label:'送り出す',run:c=>{retire(c.p);return '最後のステージは大きな拍手に包まれた'}}]},
-  {id:'indep',name:'独立の希望',t:'p',w:c=>c.u&&c.u.fans>=30000&&T()-c.p.joined>=12?(TYPES[c.u.type].max===1?1.2:.5):0,text:c=>`${c.p.name}が独立したいと申し出てきた。`,choices:[
+  {id:'indep',name:'独立の希望',t:'p',w:c=>c.u&&c.u.fans>=30000&&T()-c.p.joined>=12?(TYPES[c.u.type].max===1?1.2:.5):0,text:c=>`${sn(c.p)}が独立したいと申し出てきた。`,choices:[
     {label:'認める',run:c=>{independent(c.p);return '独立後はライバルとしてチャートに現れる'}},
     {label:'引き止める',run:c=>{if(Math.random()<.5){addCond(c.p,-20);return '残留したが、わだかまりが残った（調子−20）'}independent(c.p);return '説得は届かず、独立していった'}}]},
-  {id:'discord',name:'メンバーの不和',t:'u',w:c=>c.u.members.length>1&&unitCompat(c.u).avg<=-10?2*breakupF(c.u):0,text:c=>{const [a,b]=worstPair(c.u);return `${c.u.name}の空気が悪い。特に${a.name}と${b.name}がぶつかっている。`},choices:[
-    {label:'話し合いの場を設ける',run:c=>{const [a,b]=worstPair(c.u);if(Math.random()<.5){addCompat(a,b,20,true);return `${a.name}と${b.name}の関係が改善した`}members(c.u).forEach(m=>addCond(m,-10));return '話し合いは平行線に終わった（調子−10）'}},
-    {label:'メンバーを外す',run:c=>{const p=worstMember(c.u);removeFromUnit(p);return `${p.name}が抜けた`}},
+  {id:'discord',name:'メンバーの不和',t:'u',w:c=>c.u.members.length>1&&unitCompat(c.u).avg<=-10?2*breakupF(c.u):0,text:c=>{const [a,b]=worstPair(c.u);return `${c.u.name}の空気が悪い。特に${sn(a)}と${sn(b)}がぶつかっている。`},choices:[
+    {label:'話し合いの場を設ける',run:c=>{const [a,b]=worstPair(c.u);if(Math.random()<.5){addCompat(a,b,20,true);return `${sn(a)}と${sn(b)}の関係が改善した`}members(c.u).forEach(m=>addCond(m,-10));return '話し合いは平行線に終わった（調子−10）'}},
+    {label:'メンバーを外す',run:c=>{const p=worstMember(c.u);removeFromUnit(p);return `${sn(p)}が抜けた`}},
     {label:'解散する',run:c=>{disband(c.u,'不和により解散');return `${c.u.name}は解散した`}}]},
   {id:'split',name:'解散の危機',t:'u',w:c=>c.u.members.length>1&&unitCompat(c.u).avg<=-25?3*breakupF(c.u):0,text:c=>`方向性の違いから、${c.u.name}が解散の危機を迎えている。`,choices:[
     {label:'解散する',run:c=>{disband(c.u,'方向性の違いで解散');return `${c.u.name}は解散した`}},
     {label:'活動を続ける',run:c=>{members(c.u).forEach(m=>addCond(m,-15));pairs(members(c.u)).forEach(([a,b])=>addCompat(a,b,-5));return '活動は続くが、メンバーは疲れ切っている（調子−15）'}}]},
   // ===== D56で追加 =====
   {id:'direction',name:'方向性の違い',t:'u',w:c=>c.u.members.length>1&&T()-c.u.formed>=6?1.8*breakupF(c.u)*(unitCompat(c.u).avg<0?1.5:1):0,text:c=>`${c.u.name}のメンバーの間で、これからの音楽性について意見が割れている。`,choices:[
-    {label:'とことん話し合わせる',run:c=>{if(Math.random()<.6){pairs(members(c.u)).forEach(([a,b])=>addCompat(a,b,6,true));return '雨降って地固まる。メンバーの相性が少し良くなった'}const p=worstMember(c.u);removeFromUnit(p);return `${p.name}がグループを離れることになった`}},
+    {label:'とことん話し合わせる',run:c=>{if(Math.random()<.6){pairs(members(c.u)).forEach(([a,b])=>addCompat(a,b,6,true));return '雨降って地固まる。メンバーの相性が少し良くなった'}const p=worstMember(c.u);removeFromUnit(p);return `${sn(p)}がグループを離れることになった`}},
     {label:'解散を受け入れる',run:c=>{const n=c.u.name;disband(c.u,'方向性の違いで解散');return `${n}は解散した。メンバーはそれぞれの道へ`}}]},
-  {id:'solodream',name:'ソロへの思い',t:'p',w:c=>c.u&&c.u.members.length>1&&ov(c.p)>=55&&ov(c.p)>=Math.max(...members(c.u).filter(m=>m!==c.p).map(ov))+8?1.2*breakupF(c.u):0,text:c=>`${c.p.name}が「ソロでも勝負してみたい」と打ち明けてきた。`,choices:[
-    {label:'背中を押す',run:c=>{const n=c.u.name;removeFromUnit(c.p);addCond(c.p,15);return `${c.p.name}は${n}を離れ、ソロの準備に入った（編成タブで組めます）`}},
-    {label:'グループに残ってほしいと伝える',run:c=>{if(Math.random()<.65){addCond(c.p,-10);return '悩んだ末、グループに残ることにした（調子−10）'}removeFromUnit(c.p);return `説得はかなわず、${c.p.name}はグループを離れた`}}]},
+  {id:'solodream',name:'ソロへの思い',t:'p',w:c=>c.u&&c.u.members.length>1&&ov(c.p)>=55&&ov(c.p)>=Math.max(...members(c.u).filter(m=>m!==c.p).map(ov))+8?1.2*breakupF(c.u):0,text:c=>`${sn(c.p)}が「ソロでも勝負してみたい」と打ち明けてきた。`,choices:[
+    {label:'背中を押す',run:c=>{const n=c.u.name;removeFromUnit(c.p);addCond(c.p,15);return `${sn(c.p)}は${n}を離れ、ソロの準備に入った（編成タブで組めます）`}},
+    {label:'グループに残ってほしいと伝える',run:c=>{if(Math.random()<.65){addCond(c.p,-10);return '悩んだ末、グループに残ることにした（調子−10）'}removeFromUnit(c.p);return `説得はかなわず、${sn(c.p)}はグループを離れた`}}]},
   {id:'hiatus',name:'活動休止',t:'u',w:c=>{const ms=members(c.u);return ms.reduce((s,m)=>s+m.cond,0)/ms.length<40&&!unitHot(c.u)?1.5:0},text:c=>`疲れのたまった${c.u.name}が、しばらく活動を休むことになった。`,run:c=>{members(c.u).forEach(m=>addCond(m,25));c.u.lastRelease=T();return '全員の調子+25。次の新曲は少し先になる'}},
   {id:'cover',name:'「歌ってみた」が話題',t:'u',w:c=>c.u.songs>0?.6:0,text:c=>`ファンが投稿した${c.u.name}の曲の「歌ってみた」動画が広まっている。`,run:c=>`ファン${fmt(addFans(c.u,.06,300))}`},
   {id:'collab',name:'コラボの誘い',t:'u',w:c=>c.u.fans>=2000?.6:0,text:c=>`${S.agencyRival&&Math.random()<.5?'ライバル事務所の'+S.agencyRival.name+'から':'人気アーティストから'}、${c.u.name}にコラボの誘いが来た。`,choices:[
@@ -220,16 +220,84 @@ const EVENTS=[
     {label:'今回は見送る',run:()=>'自分たちの活動に集中することにした'}]},
   {id:'anniv',name:'結成記念日',t:'u',w:c=>T()-c.u.formed>=8&&(T()-c.u.formed)%4===0?1:0,text:c=>`${c.u.name}が結成${(T()-c.u.formed)/4}周年を迎えた。`,run:c=>{const f=addFans(c.u,.04,200);members(c.u).forEach(m=>addCond(m,10));return `ファン${fmt(f)}、全員の調子+10`}},
   // 先輩からの楽曲提供（F03→D60）：作曲の得意な先輩が、後輩の組に曲を書く。受け取ると次の新曲はその曲になる
-  {id:'senpai',name:'先輩からの楽曲提供',t:'u',w:c=>!c.u.gift&&senpaiFor(c.u)?.7:0,text:c=>{const q=senpaiFor(c.u);c.u.giftFrom=q.id;return `作曲の得意な先輩の${q.name}が、${c.u.name}のために曲を書いてくれた。`},choices:[
-    {label:'ありがたく受け取る',run:c=>{const q=person(c.u.giftFrom);if(!q)return '話は立ち消えになった';const g=Math.round(clamp(q.abil.comp*.9+q.abil.expr*.15+rnd(-5,8),20,98));c.u.gift={by:q.name,q:g};pairs([q,...members(c.u)]).forEach(([a,b])=>{if(a===q||b===q)addCompat(a,b,5,true)});return `次の新曲は${q.name}の作品（出来${g}前後）。先輩との相性も深まった`}},
+  {id:'senpai',name:'先輩からの楽曲提供',t:'u',w:c=>!c.u.gift&&senpaiFor(c.u)?.7:0,text:c=>{const q=senpaiFor(c.u);c.u.giftFrom=q.id;return `作曲の得意な先輩の${sn(q)}が、${c.u.name}のために曲を書いてくれた。`},choices:[
+    {label:'ありがたく受け取る',run:c=>{const q=person(c.u.giftFrom);if(!q)return '話は立ち消えになった';const g=Math.round(clamp(q.abil.comp*.9+q.abil.expr*.15+rnd(-5,8),20,98));c.u.gift={by:q.name,q:g};pairs([q,...members(c.u)]).forEach(([a,b])=>{if(a===q||b===q)addCompat(a,b,5,true)});return `次の新曲は${sn(q)}の作品（出来${g}前後）。先輩との相性も深まった`}},
     {label:'自分たちで作ると伝える',run:c=>{members(c.u).forEach(m=>addAbil(m,'comp',2));return '刺激を受けて、メンバーの作曲+2'}}]},
-  {id:'mentor',name:'先輩の背中',t:'p',w:c=>c.p.age<=21&&S.people.some(q=>q!==c.p&&ov(q)>=70)?.8:0,text:c=>{const q=S.people.filter(q=>q!==c.p&&ov(q)>=70).sort((a,b)=>ov(b)-ov(a))[0];return `${c.p.name}が先輩の${q.name}のステージを袖から見て、目を輝かせていた。`},run:c=>{const a=mainAbil(c.p);addAbil(c.p,a,3);return `${AB_NAME[a]}+3`}},
+  // 伝説の先輩（ニューゲーム＋：D64）。前の周の殿堂入りが、指導・楽曲提供・激励に来る
+  {id:'legendlesson',name:'伝説の先輩の特別指導',t:'p',w:c=>S.legend&&T()-c.p.joined>=1?.5:0,text:c=>`伝説の先輩・${lastName(S.legend.name)}が、${sn(c.p)}に稽古をつけてくれた。`,run:c=>{const a=legendTop(S.legend);addAbil(c.p,a,4);addCond(c.p,-5);return `${AB_NAME[a]}+4、調子−5`}},
+  {id:'legendgift',name:'伝説の先輩からの楽曲提供',t:'u',w:c=>S.legend&&!c.u.gift&&c.u.songs>0?.3:0,text:c=>`伝説の先輩・${lastName(S.legend.name)}が、${c.u.name}に曲を書いてみたいと言ってくれた。`,choices:[
+    {label:'お願いする',run:c=>{const L=S.legend;const g=Math.round(clamp(L.abil.comp*.9+L.abil.expr*.15+rnd(-5,8),20,98));c.u.gift={by:L.name,q:g};return `次の新曲は${lastName(L.name)}の作品（出来${g}前後）`}},
+    {label:'気持ちだけ受け取る',run:c=>{members(c.u).forEach(m=>addCond(m,8));return '励みになった。メンバーの調子+8'}}]},
+  {id:'legendcheer',name:'伝説の先輩の激励',t:'a',w:()=>S.legend?.5:0,text:()=>`伝説の先輩・${lastName(S.legend.name)}が、ふらりと事務所に顔を出した。`,run:()=>{S.people.forEach(p=>addCond(p,8));return '全員の調子+8'}},
+  {id:'mentor',name:'先輩の背中',t:'p',w:c=>c.p.age<=21&&S.people.some(q=>q!==c.p&&ov(q)>=70)?.8:0,text:c=>{const q=S.people.filter(q=>q!==c.p&&ov(q)>=70).sort((a,b)=>ov(b)-ov(a))[0];return `${sn(c.p)}が先輩の${sn(q)}のステージを袖から見て、目を輝かせていた。`},run:c=>{const a=mainAbil(c.p);addAbil(c.p,a,3);return `${AB_NAME[a]}+3`}},
 ];
 
 // チャートの内部ポイント1あたりのダウンロード数
 const DL_PER_PT=1000;
 
+// ===== アーティストの夢（D68） =====
+// 一人ひとつ、迎え入れる前から持っている。叶うと素質と調子が上がり、次の（同じか、もっと大きな）夢を持つ。叶った夢は歴史に残る
+// tier：夢の大きさ（1小さめ〜3大きい）。新しく持つ夢は、まだ叶っていないものから選ぶ
+const DREAMS={
+  group:{tier:1,name:'仲間とグループでデビューする',check:p=>unitsOf(p).some(u=>u.members.length>=2&&u.songs>0)},
+  solo:{tier:1,name:'ひとりの名前でデビューする',check:p=>unitsOf(p).some(u=>TYPES[u.type].max===1&&u.songs>0)},
+  hitmaker:{tier:1,name:'自分で作った曲をトップ10に入れる',check:p=>S.songs.some(s=>s.ours&&s.composer===p.name&&s.peak!=null&&s.peak<=10)},
+  stay:{tier:1,name:'この事務所で5年続ける',check:p=>T()-p.joined>=20},
+  no1:{tier:2,name:'チャート1位を取る',check:p=>S.songs.some(s=>s.ours&&(s.members||[]).includes(p.name)&&s.peak===1)},
+  master:{tier:2,name:'誰にも負けない武器を持つ（能力90）',check:p=>Math.max(...AB.map(([a])=>p.abil[a]))>=90},
+  legend:{tier:2,name:'「伝説」と呼ばれるライブをする',check:p=>!!p.legendLive},
+  arena:{tier:2,name:'アリーナのステージに立つ',check:p=>unitsOf(p).some(u=>u.bestVenue>=2)},
+  headliner:{tier:3,name:'夏フェスのヘッドライナーになる',check:p=>unitsOf(p).some(u=>u.bestFest>=2)},
+  dome:{tier:3,name:'ドームのステージに立つ',check:p=>unitsOf(p).some(u=>u.bestVenue>=3)},
+  grand:{tier:3,name:'年間大賞を取る',check:p=>grandCount(p.awards)>0},
+};
+// 叶ったときのごほうび：すべての素質+DREAM_POT（上限99）、調子は全回復
+const DREAM_POT=4;
+
 const KEY='musicAgencyMock_v4';
+// シナリオは本編と別の枠に保存する。SLOT_KEY は最後に遊んでいた枠、SC_REC_KEY はシナリオごとの最高記録（D64）
+const SC_KEY=KEY+'_scenario',SLOT_KEY='onbanbiyori_slot',SC_REC_KEY='onbanbiyori_scenario_rec';
+
+// ===== シナリオ（D64） =====
+// years：期限（年）。stars：[★3になる年, ★2になる年]（それより後の達成は★1）。check：達成したか（毎季の終わりに見る）
+// diff：難しさ（1やさしめ・2ふつう・3むずかしい。自動送りで遊ばせた達成率で決めた）
+// roster：所属の上限、types：結成できる形態、noScout：発掘しない、audition：オーディションの人数、maxAge：候補者の年齢の上限
+const SCENARIOS=[
+  {id:'revive',diff:1,name:'つぶれかけの事務所',agency:'ひだまり音楽事務所',goal:'5年以内に年間大賞',years:5,stars:[3,4],audition:2,
+   desc:'売れないまま数年がたった小さな事務所。まわりは手ごわいライバルばかり。崖っぷちのバンドが1組と、毎年少しだけ集まる新人で巻き返す。オーディションは2人ずつ。',
+   setup(){
+     S.candidates=[];
+     const ps=[0,1,2].map(()=>genPerson({},'旗揚げメンバー',[25,29]));
+     // 伸び盛りを過ぎた3人：素質も今の力も少し低め
+     ps.forEach(p=>{for(const [a] of AB){p.pot[a]=Math.max(25,p.pot[a]-12);p.abil[a]*=.75}});
+     // まわりは手ごわい：ライバルの実力を底上げ
+     S.rivals.forEach(r=>r.power=Math.min(95,r.power+12));
+     ps.forEach(p=>{p.joined=-8;S.people.push(p);p.review=makeReview(p)});
+     const type=['band','vocal','unit'].sort((a,b)=>ps.reduce((s,p)=>s+typeFit(p,b)-typeFit(p,a),0))[0];
+     const u={id:nid(),name:genUnitName(),type,members:ps.map(p=>p.id),formed:-8,lastRelease:-3,debut:-7,fans:1200,songs:3,dl:0,lives:5,attend:0,bestVenue:0,bestFest:-1,awards:[],active:true};
+     S.units.push(u);ps.forEach(p=>p.unitId=u.id);
+     genAudition();
+   },
+   check:()=>ourAwards('年間大賞').length>0},
+  {id:'solo',diff:2,name:'ひとりの声',agency:'ひとつ星レコード',goal:'3年以内に年間大賞',years:3,stars:[2,3],roster:1,noScout:true,audition:0,
+   desc:'所属はひとりだけ。発掘もしない。いつか街角で見つけた、その声だけを信じて頂点を目指す。',
+   setup(){
+     const p=genPerson({sing:8,expr:6},'街角',[17,20]);
+     for(const a of ['sing','expr','char','comp']){p.pot[a]=Math.max(p.pot[a],Math.round(rnd(86,97)));p.abil[a]=Math.max(p.abil[a],rnd(28,36))}
+     p.joined=0;S.people.push(p);p.review=makeReview(p);
+   },
+   check:()=>ourAwards('年間大賞').length>0},
+  {id:'rookie',diff:1,name:'新人だけの3年',agency:'あおば音楽事務所',goal:'3年以内に年間チャート1位',years:3,stars:[2,3],maxAge:20,
+   desc:'迎え入れられるのは20歳以下だけ。経験のない若い才能を、3年で一番売れる曲まで連れていく。',
+   check:()=>S.annual.some(y=>y.top[0]&&y.top[0].ours)},
+  {id:'nemesis',diff:3,name:'宿敵',agency:'こもれび音楽事務所',goal:'5年で事務所対決に3勝',years:5,stars:[3,4],agencyHard:true,
+   desc:'向かいのビルには、ずっと格上のライバル事務所。毎年冬のチャート対決で、5年のうちに3回勝ち越す。',
+   afterGoals(){S.agencyRival.factor=1.12},
+   check:()=>S.agencyRival&&S.agencyRival.record.win>=3},
+  {id:'band',diff:1,name:'バンド一本',agency:'ガレージ音楽事務所',goal:'5年以内にドーム公演',years:5,stars:[3,4],types:['band'],roster:6,
+   desc:'結成できるのはバンドだけ。所属は6人まで。ライブハウスから、ホール、アリーナ、そしてドームへ。',
+   check:()=>S.units.some(u=>u.bestVenue>=3)},
+];
 
 // ===== ゴール（事務所ランク・実績・殿堂） =====
 // 事務所ランク：実績ポイントで上がり、下がらない。office はホームの建物の絵（images/office/、ランクごとに1枚）
@@ -237,10 +305,10 @@ const OFFICE_RANKS=[
   {name:'街角の小さな事務所',need:0,office:0},
   {name:'評判の事務所',need:30,office:1},
   {name:'注目のレーベル',need:120,office:2},
-  {name:'人気レーベル',need:300,office:3},
-  {name:'一流レーベル',need:600,office:4},
-  {name:'名門レーベル',need:1200,office:5},
-  {name:'伝説のレーベル',need:2400,office:6},
+  {name:'人気レーベル',need:260,office:3},
+  {name:'一流レーベル',need:480,office:4},
+  {name:'名門レーベル',need:850,office:5},
+  {name:'伝説のレーベル',need:1500,office:6},
 ];
 // 実績ポイント：累計10万DLごとに1、音楽賞、最大会場、夏フェスの最高枠、殿堂入り
 const SCORE_AWARD={'年間大賞':50,'最優秀アーティスト賞':30,'最優秀新人賞':20,'最優秀作曲賞':20};
@@ -290,10 +358,12 @@ const ACHIEVEMENTS=[
   {id:'agencywin',name:'宿敵に勝つ',desc:'年間の事務所対決でライバル事務所に勝つ',check:()=>S.agencyRival.record.win>0},
   {id:'agency3',name:'三年連続の凱歌',desc:'事務所対決で3年連続勝つ',check:()=>S.agencyRival.streak>=3},
   {id:'agencyrank',name:'追い越した日',desc:'事務所ランクでライバル事務所を上回る',check:()=>S.rank>S.agencyRival.rank},
+  {id:'dream1',name:'夢がかなう日',desc:'所属の人の夢が初めて叶う',check:()=>(S.dreamLog||[]).length>=1},
+  {id:'dream10',name:'夢の工場',desc:'所属の人の夢が通算10個叶う',check:()=>(S.dreamLog||[]).length>=10},
   {id:'longrun',name:'長い付き合い',desc:'同じ顔ぶれの組で5年活動する',check:()=>S.units.some(u=>u.active&&T()-u.formed>=20)},
 ];
 
-// 自動送りの初期設定（S.auto に保存）
+// 自動モードの判断の基準（D66で固定。選ばせない）
 const AUTO_DEFAULT={rest:true,restAt:35,back:true,backAt:85,scout:'rotate',sign:true,signStars:4,wait:4,stopAward:true,stopLeave:true,stopGoal:true,stopLive:true,release:true,form:true,train:true};
 
 // ===== ライブ本番（D48） =====
@@ -385,4 +455,12 @@ const LIVE_KIND_NAME={venue:'初公演',fest:'夏フェス',yearend:'年末の�
 // ===== ライバル事務所（D53） =====
 const AGENCY_NAMES=['ノクターン・レコーズ','スターライト芸能','アオゾラ音楽事務所','ミッドナイト・ミュージック','銀河レーベル','ブルーアワー・エンタテインメント','ひかり座ミュージック','クレセント音楽事務所'];
 // 所属アーティストは2〜4組。毎年春に、空きがあれば半々で新人がデビューし、4組を超えたら一番弱い組が活動を終える
-const AGENCY_UNITS=[2,4];
+const AGENCY_UNITS=[2,3];
+
+// ===== 能力の色と1枚絵（D70・D71） =====
+// 能力ごとの色（1枚絵の主役の色。画面の印や枠にも使う）。合体と固有スキルは金
+const ABIL_COLOR={sing:'#d9573b',play:'#e9a23b',comp:'#3c6e91',dance:'#5f9e6e',expr:'#8a74b0',char:'#cf4f7d',combo:'#e2b84a',trait:'#e2b84a'};
+// 印（エンブレム）の画像を使う能力。ここにないものはドット絵のアイコンを能力の色の丸で囲んで代わりに描く
+const EMBLEM_PNG=['sing','play','comp','dance','expr','char','combo','trait'];
+// 初めての大舞台の1枚絵（会場の番号 → 絵）。夏フェスはヘッドライナー（2）だけ
+const STAGE_ILLUST={venue:{1:'stage_hall',2:'stage_arena',3:'stage_dome'},fest:{2:'stage_fest'}};

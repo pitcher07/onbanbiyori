@@ -120,7 +120,7 @@ function judge(order,m){
   const awaken=ok&&awakenChance(m,order);
   let gain=(ok?up:down)+(awaken?(m.type==='combo'?30:22+Math.max(0,tier)*4):0);
   if(L.ms.some(x=>hasT(x,'mood')))gain+=2;
-  return {ok,gain,awaken,sk,combo:m.type==='combo',by:m.type==='combo'?m.p.name+'×'+m.q.name:m.p.name};
+  return {ok,gain,awaken,sk,combo:m.type==='combo',by:m.type==='combo'?sn(m.p)+'×'+sn(m.q):sn(m.p)};
 }
 function applyResult(r){addMeter(r.gain);if(r.awaken)L.awaken++;if(r.awaken&&r.combo){L.combo++;if(S.skillDex[r.sk]==null)S.skillDex[r.sk]={t:T(),by:r.by}}if(r.breakout){L.breakout++;L.awaken++}}
 // ハプニング：2曲目のあとに、45%で1つ起きる
@@ -136,13 +136,13 @@ function pickHappen(){
 function resolveHappen(h,i){
   const p=h.p,best=(a)=>L.ms.reduce((b,m)=>m.abil[a]>b.abil[a]?m:b,L.ms[0]);
   if(h.id==='singalong')return {ok:true,gain:12,text:'会場全体がひとつの歌になった。'};
-  if(i===1)return {ok:true,gain:h.id==='breakout'?5:h.id==='rain'?3:-2,text:h.id==='trouble'?'演奏を止めて立て直した。少し間があいた。':h.id==='rain'?'客席を気づかう言葉に、温かい拍手が起きた。':`${p.name}は堅実にこなした。`};
+  if(i===1)return {ok:true,gain:h.id==='breakout'?5:h.id==='rain'?3:-2,text:h.id==='trouble'?'演奏を止めて立て直した。少し間があいた。':h.id==='rain'?'客席を気づかう言葉に、温かい拍手が起きた。':`${sn(p)}は堅実にこなした。`};
   if(h.id==='trouble'){const c=best('char');const ok=Math.random()<clamp(.45+(Math.max(c.abil.char,c.abil.expr)-55)/100,.1,.9);
-    return {ok,gain:ok?18:-10,text:ok?`${c.name}がアカペラで歌い出し、客席が大合唱で応えた！`:'声が届ききらず、会場が少し静まった…'}}
+    return {ok,gain:ok?18:-10,text:ok?`${sn(c)}がアカペラで歌い出し、客席が大合唱で応えた！`:'声が届ききらず、会場が少し静まった…'}}
   if(h.id==='rain'){const ok=Math.random()<clamp(.5+(L.ms.some(m=>hasT(m,'tough')||hasT(m,'clutch'))?.15:0)+(livePower(L.u)-55)/150,.1,.9);
     return {ok,gain:ok?16:-6,text:ok?'雨の中のステージが、忘れられない光景になった！':'雨に体力を奪われ、動きが重くなった…'}}
   const ok=Math.random()<clamp(.5+(p.age<20?.1:0)+(hasT(p,'clutch')?.15:0)+(p.cond-60)/250-stageDiff()/2,.1,.9);
-  return {ok,gain:ok?20:-6,breakout:ok,text:ok?`${p.name}が化けた。誰もが息をのむ一瞬だった！`:`${p.name}は緊張で固まってしまった…`};
+  return {ok,gain:ok?20:-6,breakout:ok,text:ok?`${sn(p)}が化けた。誰もが息をのむ一瞬だった！`:`${sn(p)}は緊張で固まってしまった…`};
 }
 function gradeOf(){
   let g=[...LIVE_GRADES].reverse().find(x=>L.meter>=x.min);
@@ -163,7 +163,7 @@ function finishShow(){
   }
   u.fans=Math.max(0,u.fans+extra);
   st.shows++;st.awaken+=L.awaken;st.combo+=L.combo;st.breakout+=L.breakout;
-  if(L.encore)st.encore++;if(g.name==='伝説')st.legend++;if(sc.kind==='yearend'&&g.min>=100)st.yearendGreat++;
+  if(L.encore)st.encore++;if(g.name==='伝説'){st.legend++;members(u).forEach(m=>m.legendLive=true)}if(sc.kind==='yearend'&&g.min>=100)st.yearendGreat++;
   const t=liveTitle(sc);
   S.report.live.unshift(`【ライブ本番】${u.name} ${t} 評価「${g.name}」 盛り上がり${Math.round(L.meter)}${L.awaken?` 覚醒${L.awaken}回`:''}${L.encore?' アンコールあり':''}${vs} ファン${fmt(extra)}`);
   if(g.min>=100||L.win&&rival.ex)hist(`${u.name}の${t}が「${g.name}」の評価に${L.awaken?`（覚醒${L.awaken}回）`:''}${vs}`);
@@ -193,7 +193,7 @@ function startLive(done){
   const el=document.createElement('div');el.id='live';el.className='live k-'+sc.kind;
   el.innerHTML=`<div class="live-top"><div><small>ライブ本番${rival?' ・ 対決':''}</small><b>${esc(u.name)}</b><span>${liveTitle(sc)}${rival?` ${art('live/vs','vs-mark','VS')}<em class="vs">${esc(rival.name)}${rival.ex?'（元所属）':''}${rival.agency?'（ライバル事務所）':''}</em>`:''}</span></div><button class="btn sm" data-live="skip">おまかせで最後まで</button></div>
   <div class="stage h0">${art('live/stage_'+bg,'stage-bg')}<div class="beams">${[1,2,0,3,1].map(b=>`<i style="--b:${b}"></i>`).join('')}</div>
-    <div class="band">${ms.map(p=>`<div class="mem" data-pid="${p.id}"><span class="fig-wrap">${figure(p,2,rolePose(p))}</span><small>${esc(p.name)}</small></div>`).join('')}</div>
+    <div class="band">${ms.map(p=>`<div class="mem" data-pid="${p.id}"><span class="fig-wrap">${figure(p,2,rolePose(p))}</span><small>${esc(sn(p))}</small></div>`).join('')}</div>
     <div class="crowd">${Array.from({length:96},(_,i)=>`<i style="--d:${-(Math.random()*1.2).toFixed(2)}s;--v:${i*7%6};--pc:${i%4}"></i>`).join('')}</div>
     <div class="crowd-front">${Array.from({length:16},(_,i)=>`<i style="--d:${-(Math.random()*1.2).toFixed(2)}s;--v:${i*3%4}"></i>`).join('')}</div>
     <div class="song-title"></div><div class="floats"></div></div>
@@ -203,7 +203,7 @@ function startLive(done){
   <div class="cutin"></div>`;
   el.addEventListener('click',e=>{const b=e.target.closest('[data-live]');if(!b)return;e.stopPropagation();liveClick(b)});
   document.body.append(el);document.body.classList.add('live-open');
-  liveSoundStart();setMeter();showIntro();frameTick();
+  liveSoundStart();setMeter();showIntro();frameTick();stageSplash();
 }
 // 立ち姿の2コマを、盛り上がりに合わせた速さで切り替える
 function frameTick(){
@@ -243,7 +243,7 @@ function floatText(text,cls){
 const INTRO={venue:'開演前の楽屋。',fest:'フェスのバックステージ。隣のステージには{r}が立つ。',yearend:'今年最後のステージ。客席には一年分の思いが詰まっている。',battle:'今夜は{r}との対バン。どちらが会場を持っていくか。'};
 function showIntro(){
   const opts=L.songs.slice(0,6);
-  const pickRow=(k,cur,label)=>`<div class="sub">${label}</div><div class="setlist">${opts.map(s=>`<button class="btn${s===cur?' on':''}" data-live="${k}" data-id="${s.id}">「${esc(s.title)}」<small>出来 ${s.q}</small></button>`).join('')}</div>`;
+  const pickRow=(k,cur,label)=>`<div class="sub">${label}</div><div class="setlist">${opts.map(s=>`<button class="btn${s===cur?' on':''}" data-live="${k}" data-id="${s.id}">${jacket(s,20)}「${esc(s.title)}」<small>出来 ${s.q}</small></button>`).join('')}</div>`;
   panel(`<p class="narr">${esc(INTRO[L.sc.kind].replace('{r}',L.rival?L.rival.name:''))}${esc(L.u.name)}の${liveTitle(L.sc)}。セットリストを決めよう。</p>
   ${opts.length>1?pickRow('opener',L.opener,'1曲目（つかみ）'):''}${opts.length?pickRow('climax',L.climax,'ここぞの1曲（ラスト）'):'<p class="sub">持ち曲が足りないので、カバー曲で臨む。</p>'}
   <div class="row" style="justify-content:flex-end"><button class="btn pri" data-live="go">開演 ▶</button></div>`);
@@ -301,19 +301,19 @@ async function moment(sg){
     se('moment');
     const chance=o=>awakenChance(m,o)?'<em class="chance">★ 覚醒チャンス</em>':'';
     const who=m.type==='combo'
-      ?`<p class="narr"><b>合体の見せ場！</b> ${esc(m.p.name)}と${esc(m.q.name)}が目を合わせた。ふたりの「${esc(m.name)}」が狙える</p><div class="sub">相性◎ ・ ${AB_NAME[m.a]} ${Math.floor(m.p.abil[m.a])}／${AB_NAME[m.b]} ${Math.floor(m.q.abil[m.b])}</div>`
-      :`<p class="narr"><b>見せ場！</b> ${esc(LIVE_MOMENT[m.a].scene.replace('{n}',p.name))}</p><div class="sub">${AB_NAME[m.a]} ${Math.floor(p.abil[m.a])} ・ 調子 ${Math.round(p.cond)} ${p.cond<35?'<span class="warn">疲れが見える</span>':''} ${momentSkill(m)?`・ ${skillOf(p,m.a)?'見せ場スキル':'固有スキル'}「${momentSkill(m)}」`:''}</div>`;
+      ?`<p class="narr"><b>合体の見せ場！</b> ${esc(sn(m.p))}と${esc(sn(m.q))}が目を合わせた。ふたりの「${esc(m.name)}」が狙える</p><div class="sub">相性◎ ・ ${AB_NAME[m.a]} ${Math.floor(m.p.abil[m.a])}／${AB_NAME[m.b]} ${Math.floor(m.q.abil[m.b])}</div>`
+      :`<p class="narr"><b>見せ場！</b> ${esc(LIVE_MOMENT[m.a].scene.replace('{n}',sn(p)))}</p><div class="sub">${AB_NAME[m.a]} ${Math.floor(p.abil[m.a])} ・ 調子 ${Math.round(p.cond)} ${p.cond<35?'<span class="warn">疲れが見える</span>':''} ${momentSkill(m)?`・ ${skillOf(p,m.a)?'見せ場スキル':'固有スキル'}「${momentSkill(m)}」`:''}</div>`;
     panel(`${who}<div class="orders">${LIVE_ORDERS.map(([o,n,d])=>`<button class="btn${o==='attack'?' pri':''}" data-live="order" data-o="${o}"><b>${n}</b><small>${d}</small>${chance(o)}</button>`).join('')}</div>`);
     order=await new Promise(r=>liveWait=r)||'trust';
   }
   const r=judge(order,m);
-  if(r.awaken)await cutIn(m.type==='combo'?[m.p,m.q]:[p],r.sk,m.type==='combo'?'合体':'覚醒');
+  if(r.awaken)await cutIn(m.type==='combo'?[m.p,m.q]:[p],r.sk,m.type==='combo'?'合体':'覚醒',m.type==='combo'?['combo',m.a,m.b]:[skillOf(p,m.a)?m.a:'trait']);
   applyResult(r);setMeter();
   if(!L.fast){
     spots.forEach(x=>x.classList.add(r.ok?'hit':'miss'));
     floatText((r.gain>=0?'+':'')+r.gain,r.ok?'up':'down');
     if(r.ok&&!r.awaken){cheer(.5+r.gain/30);sparkles(50,45)}else if(!r.ok)se('miss');
-    const txt=m.type==='combo'?(r.ok?`${m.p.name}と${m.q.name}の「${m.name}」が決まった！`:'ふたりの呼吸が、わずかにずれた…'):LIVE_MOMENT[m.a][r.ok?'ok':'ng'].replace('{n}',p.name);
+    const txt=m.type==='combo'?(r.ok?`${sn(m.p)}と${sn(m.q)}の「${m.name}」が決まった！`:'ふたりの呼吸が、わずかにずれた…'):LIVE_MOMENT[m.a][r.ok?'ok':'ng'].replace('{n}',sn(p));
     panel(`<p class="narr ${r.ok?'good':'warn'}">${esc(txt)}</p>`);
   }
   await sleep(1300);
@@ -326,11 +326,11 @@ async function happening(h){
   if(!L.fast){
     se('moment');
     if(h.id==='breakout'){document.querySelectorAll('#live .mem').forEach(x=>x.classList.toggle('dim',x!==mem));mem.classList.add('spot')}
-    panel(`<p class="narr"><b>ハプニング！</b> ${esc(h.text.replace('{n}',p.name))}</p>${h.choices?`<div class="orders two">${h.choices.map(([n,d],k)=>`<button class="btn${k===0?' pri':''}" data-live="hap" data-o="${k}"><b>${n}</b><small>${d}</small></button>`).join('')}</div>`:''}`);
+    panel(`<p class="narr"><b>ハプニング！</b> ${esc(h.text.replace('{n}',sn(p)))}</p>${h.choices?`<div class="orders two">${h.choices.map(([n,d],k)=>`<button class="btn${k===0?' pri':''}" data-live="hap" data-o="${k}"><b>${n}</b><small>${d}</small></button>`).join('')}</div>`:''}`);
     if(h.choices)i=+(await new Promise(r=>liveWait=r)??0);else await sleep(1600);
   }else if(h.choices)i=L.meter<60?1:0;
   const r=resolveHappen(h,i);
-  if(r.breakout)await cutIn([p],'殻を破る','覚醒');
+  if(r.breakout)await cutIn([p],'殻を破る','覚醒',['expr']);
   applyResult(r);setMeter();
   if(!L.fast){
     floatText((r.gain>=0?'+':'')+r.gain,r.gain>=0?'up':'down');
@@ -341,11 +341,14 @@ async function happening(h){
   document.querySelectorAll('#live .mem').forEach(x=>x.classList.remove('dim','spot'));
 }
 // 覚醒：暗転とスローのあと、顔が切り込んで技の名前が出る。最後に客席が爆発する
-async function cutIn(ps,sk,label){
+// kind：[絵の種類（能力・combo・trait）, 合体なら2人の能力]。帯の背景は1枚絵、ふちは能力の色、右上に能力の印（D71）
+async function cutIn(ps,sk,label,kind){
   if(L.fast)return;
   const st=$('.stage'),c=$('.cutin');
   st.classList.add('slow');liveRiser();await sleep(900);
-  c.innerHTML=`<div class="cut-band${ps.length>1?' duo':''}">${ps.map(p=>portrait(p,128,'awaken',true)).join('')}<div class="cut-text"><small>${label}</small><b>${esc(sk)}</b><span>${ps.map(p=>esc(p.name)).join(' × ')}</span></div></div>`;
+  const [bg,a1,a2]=kind||[ps.length>1?'combo':'trait'];
+  const col1=ABIL_COLOR[a1||bg],col2=ABIL_COLOR[a2||a1||bg];
+  c.innerHTML=`<div class="cut-band illust${ps.length>1?' duo':''}" style="background-image:url(${illust('cutin_'+bg)});--ac:${col1};--ac2:${col2}">${ps.map(p=>portrait(p,128,'awaken',true)).join('')}<div class="cut-text"><small>${label}</small><b>${esc(sk)}</b><span>${ps.map(p=>esc(sn(p))).join(' × ')}</span></div><div class="cut-emb">${abilBadge(bg,72)}</div></div>`;
   c.classList.add('on');await sleep(1700);
   c.classList.add('flash');liveImpact();
   st.classList.remove('slow');st.classList.add('explode');
@@ -353,12 +356,23 @@ async function cutIn(ps,sk,label){
   await sleep(350);c.classList.remove('on','flash');c.innerHTML='';
   liveConfetti();sparkles(50,40,8);await sleep(900);st.classList.remove('explode');
 }
+// 初めての大舞台（ホール・アリーナ・ドーム・ヘッドライナー）は、開演前に1枚絵を見せる（D71）
+const stageIllust=sc=>sc&&STAGE_ILLUST[sc.kind]&&STAGE_ILLUST[sc.kind][sc.idx]||null;
+function stageSplash(){
+  const il=stageIllust(L.sc);if(!il||L.fast)return;
+  const el=document.createElement('div');el.className='stage-splash';
+  el.innerHTML=`<div class="splash-art" style="background-image:url(${illust(il)})"></div><div class="splash-cap"><small>${L.sc.kind==='fest'?'はじめての':'はじめての大舞台'}</small><b>${liveTitle(L.sc)}</b><span>${esc(L.u.name)}</span></div>`;
+  const close=()=>{if(!el.isConnected)return;el.classList.add('out');setTimeout(()=>el.remove(),400)};
+  el.addEventListener('click',close);setTimeout(close,3200);
+  document.getElementById('live').append(el);
+}
 function showFinale(){
   const {g,extra}=finishShow();
   liveSongStop();cheer(g.min>=100||L.win?1.6:g.min>=75?1:.5);
   if(g.min>=100||L.win)setTimeout(()=>se('award'),400);else se('stamp');
   const vs=L.rival?`<div class="vs-result ${L.win?'win':'lose'}">${L.win?'勝利':'惜敗'} <span>${Math.round(L.meter)} 対 ${Math.round(L.rmeter)}</span></div>`:'';
-  panel(`<div class="finale"><div class="grade g${LIVE_GRADES.indexOf(g)}"><span>評価</span><b>${g.name}</b></div>
+  const il=stageIllust(L.sc);
+  panel(`${il?`<div class="finale-art" style="background-image:url(${illust(il)})"></div>`:''}<div class="finale"><div class="grade g${LIVE_GRADES.indexOf(g)}"><span>評価</span><b>${g.name}</b></div>
   <div>${vs}<div>盛り上がり <b>${Math.round(L.meter)}</b>${L.awaken?` ・ 覚醒 <b>${L.awaken}</b>回`:''}${L.encore?' ・ アンコール':''}</div><div>ファン <b>${fmt(extra)}</b></div></div>
   <button class="btn pri" data-live="close">次へ ▶</button></div>`);
   const sk=$('.live-top [data-live=skip]');if(sk)sk.remove();

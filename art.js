@@ -10,6 +10,7 @@ const UI_ICONS={
   bulb:['....####....','...#....#...','..#......#..','..#......#..','..#..##..#..','...#.##.#...','....#..#....','....####....','....####....','.....##.....','............','............'],
   crown:['............','#....##....#','##...##...##','###.####.###','############','############','.##########.','.##########.','............','.##########.','............','............'],
   tired:['............','.....##.....','....####....','....#..#....','...##..##...','...##..##...','..###..###..','..########..','.####..####.','.##########.','############','............'],
+  disk:['##########..','#..######.#.','#..######..#','#..######..#','#..........#','#..........#','#.########.#','#.#......#.#','#.#......#.#','#.#......#.#','#.#......#.#','############'],
   dice:['############','#..........#','#.##....##.#','#.##....##.#','#..........#','#....##....#','#....##....#','#..........#','#.##....##.#','#.##....##.#','#..........#','############'],
 };
 function uiIcon(name,cls=''){
@@ -75,8 +76,7 @@ const screenNames={home:'事務所だより',people:'所属名鑑',training:'練
 const screenNotes={home:'今季の活動を見渡そう。',people:'一人ひとりの個性と成長の記録。',training:'今日も、それぞれの部屋から音がする。',units:'声と個性を組み合わせて、新しい音を。',scout:'まだ知られていない、あの人の音を探して。',chart:'この季節、街でいちばん聴かれた曲。',history:'出会いも、晴れ舞台も、この一冊に。'};
 function pageHeading(k){
 
-  const office=OFFICE_RANKS[S.rank||0].office;
-  return `<section class="page-head"><div><h2>${screenNames[k]}</h2><p>${screenNotes[k]}</p></div>${art(k==='home'?'office/'+office:'pages/'+k,'office-thumb')}</section>`;
+  return `<section class="page-head${k==='home'?' no-thumb':''}"><div><h2>${screenNames[k]}</h2><p>${screenNotes[k]}</p></div>${k==='home'?'':art('pages/'+k,'office-thumb')}</section>`;
 }
 const eventImages={
   cold:'events/tea',injury:'events/kit',hayfever:'events/tea',heat:'events/tea',
@@ -86,7 +86,8 @@ const eventImages={
   cm:'events/camera',request:'events/idea',study:'events/trip',producer:'events/studio',scandal:'events/camera',
   flame:'events/social',throat:'events/tea',streetfind:'scout/street',camp:'events/trip',poach:'events/contract',
   retire:'events/record',indep:'events/contract',discord:'events/chairs',split:'events/chairs',
-  direction:'events/chairs',solodream:'events/letter',hiatus:'rooms/rest',cover:'events/social',collab:'events/studio',anniv:'events/gift',mentor:'events/record',senpai:'events/studio'
+  direction:'events/chairs',solodream:'events/letter',hiatus:'rooms/rest',cover:'events/social',collab:'events/studio',anniv:'events/gift',mentor:'events/record',senpai:'events/studio',
+  legendlesson:'events/record',legendgift:'events/studio',legendcheer:'events/letter'
 };
 function eventSection(lines){
   if(!lines.length)return '';
@@ -99,3 +100,59 @@ const compatMark=v=>{
   const mark=compatLabel(v)[1], key={'◎':'best','○':'good','△':'neutral','▲':'poor','×':'bad'}[mark];
   return key?art('icons/mark/'+key,'ico',mark):esc(mark);
 };
+
+// ===== ドット絵の動き（D67）：今ある素材（全身の立ち姿・事務所の建物）を動かす =====
+// 事務所の前の通り：所属の人が行き来したり、事務所に入っていく。季節で空と天気が変わる
+function officeStreet(){
+  const office=OFFICE_RANKS[S.rank||0].office;
+  // 毎季入れ替わるが、同じ季節のうちは同じ顔ぶれ（再描画で入れ替わらないように）
+  const ps=[...S.people].sort((a,b)=>(a.id*31+T()*7)%17-(b.id*31+T()*7)%17).slice(0,4);
+  const walkers=ps.map((p,i)=>`<span class="walker ${['w-right','w-left','w-in','w-out'][i]}" style="--d:${-i*2.7}s;--t:${12+i*1.5}s;--fd:${-(p.id%5)*.13}s">${figure(p,1,0)}</span>`).join('');
+  return `<div class="street sky${S.season}" aria-hidden="true"><div class="weather w${S.season}">${'<i></i>'.repeat(14)}</div>${art('office/'+office,'street-office')}<div class="street-road"></div>${walkers}</div>`;
+}
+// トレーニング部屋：その部屋の練習をする全身の姿（休養は座って休む）
+const ROOM_POSE={voice:1,play:2,comp:3,dance:4,stage:6,rest:0};
+function roomPose(p,k){
+  if(k==='balance')return [1,2,4,5][p.id%4];
+  return ROOM_POSE[k]??0;
+}
+
+// ===== 新曲のジャケット（D67） =====
+// 曲名とアーティストから決まるドットの絵柄。素材を使わず12×12のマスで描く
+const JACKET_PALS=[['#1c4c49','#f4bd69','#fff0ce','#d3674d'],['#243444','#77a19a','#faf0d2','#f2b754'],['#3b3547','#d3674d','#edcc98','#acccb1'],['#923f43','#f2b754','#fff4d9','#2e4e4f'],['#2e4e4f','#acccb1','#fff0ce','#b94e39'],['#756886','#ffc463','#faf0d2','#243444'],['#fff0ce','#1c4c49','#d3674d','#f4bd69'],['#edcc98','#3b3547','#b94e39','#fff4d9']];
+function jacket(s,size=22){
+  let seed=2166136261;
+  for(const ch of s.title+'|'+s.artist)seed=Math.imul(seed^ch.charCodeAt(0),16777619);
+  const r=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return Math.floor(seed/4294967296*n)};
+  const [bg,a,b,c]=JACKET_PALS[r(JACKET_PALS.length)];
+  let px='';const dot=(x,y,col)=>{px+=`<rect x="${x}" y="${y}" width="1" height="1" fill="${col}"/>`};
+  const kind=r(5);
+  if(kind===0){ // 左右対称のモザイク
+    for(let y=1;y<11;y++)for(let x=1;x<6;x++){const v=r(6);if(v<3){const col=[a,b,c][v];dot(x,y,col);dot(11-x,y,col)}}
+  }else if(kind===1){ // レコード盤
+    const o=r(3)-1;
+    for(let y=0;y<12;y++)for(let x=0;x<12;x++){const d=Math.hypot(x-5.5-o,y-5.5);if(d<5.3)dot(x,y,d<1.2?b:d<2.3?c:Math.round(d*1.6)%2?'#161616':'#2a2a2a')}
+  }else if(kind===2){ // 太陽と地平線
+    const sx=2+r(6);
+    for(let y=2;y<7;y++)for(let x=sx;x<sx+4;x++)if(!((y===2||y===6)&&(x===sx||x===sx+3)))dot(x,y,c);
+    for(let y=7;y<12;y++)for(let x=0;x<12;x++)if(y>7||x%2)dot(x,y,y>9?b:a);
+  }else if(kind===3){ // 斜めの帯と星
+    const w=r(2)+2;
+    for(let y=0;y<12;y++)for(let x=0;x<12;x++)if((x+y)%6<w)dot(x,y,a);
+    for(let i=0;i<5;i++)dot(r(12),r(12),c);
+  }else{ // 大きな頭文字ふうの図形
+    const g=[[0,1,1,1,0],[1,0,0,0,1],[1,1,1,1,1],[1,0,0,0,1],[1,0,0,0,1]][r(1)];
+    const shapes=[[[1,1,1,1,1],[1,0,0,0,0],[1,1,1,1,0],[1,0,0,0,0],[1,0,0,0,0]],[[0,1,1,1,0],[1,0,0,0,1],[1,0,0,0,1],[1,0,0,0,1],[0,1,1,1,0]],[[1,0,0,0,1],[0,1,0,1,0],[0,0,1,0,0],[0,1,0,1,0],[1,0,0,0,1]],[[0,0,1,0,0],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[0,0,1,0,0]],g];
+    const sh=shapes[r(shapes.length)];
+    for(let y=0;y<5;y++)for(let x=0;x<5;x++)if(sh[y][x]){dot(1+x*2,1+y*2,a);dot(2+x*2,1+y*2,a);dot(1+x*2,2+y*2,b);dot(2+x*2,2+y*2,a)}
+  }
+  return `<svg class="jacket" viewBox="0 0 12 12" width="${size}" height="${size}" shape-rendering="crispEdges" aria-hidden="true"><rect width="12" height="12" fill="${bg}"/>${px}<rect width="12" height="1" fill="#ffffff26"/><rect y="11" width="12" height="1" fill="#00000026"/></svg>`;
+}
+
+// ===== 能力の印と1枚絵（D71） =====
+const illust=n=>`images/illust/${n}.jpg`;
+// 能力の印：丸い枠を能力の色で。印の画像が使える能力は画像、ほかはドット絵のアイコン
+function abilBadge(k,size=56){
+  const inner=EMBLEM_PNG.includes(k)?`<img src="images/illust/emblem_${k}.png" alt="">`:k==='combo'?icon('mark','best'):k==='trait'?icon('mark','star'):icon('ability',k);
+  return `<span class="emb${EMBLEM_PNG.includes(k)?' png':''}" style="--ac:${ABIL_COLOR[k]};--es:${size}px" aria-hidden="true">${inner}</span>`;
+}
